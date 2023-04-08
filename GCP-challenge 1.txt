@@ -1,0 +1,81 @@
+Challenge 1
+Criar uma instancia
+
+gcloud config set compute/region us-west4
+
+gcloud config set compute/zone us-west4-b
+
+gcloud compute instances create nucleus-jumphost-933 \
+    --machine-type=f1-micro \
+    --image-family=debian-11 \
+    --image-project=debian-cloud
+
+Challenge 2
+Criar um cluster kubernetes
+
+gcloud container clusters create kube \
+    --machine-type=n1-standard-1 \
+    --num-nodes=2
+    --zone=us-central1-c
+
+gcloud container clusters get-credentials kube --region us-central1-c
+
+kubectl create deployment hello-server \
+    --image=gcr.io/google-samples/hello-app:2.0
+
+kubectl expose deployment hello-server \
+    --type=LoadBalancer \
+    --port 8080
+
+Challenge 3
+Criar LoadBalancer HTTPS
+
+
+gcloud compute instance-templates create web-server-template \
+   --region=us-central1 \
+   --network=default \
+   --machine-type=f1-micro \
+   --metadata-from-file startup-script=startup.sh
+
+gcloud compute target-pools create nginx-pool
+
+gcloud compute instance-groups managed create web-server-group \
+   --template=web-server-template \
+   --size=2 \
+   --zone=us-central1-c
+
+
+gcloud compute firewall-rules create permit-tcp-rule-145 \
+  --network=default \
+  --action=allow \
+  --rules=tcp:80
+
+gcloud compute http-health-checks create http-basic-checks
+
+gcloud compute instance-groups managed \
+    set-named-ports web-server-group \
+    --named-ports http:80
+    # --region us-central1
+
+gcloud compute backend-services create web-server-backend \
+       --protocol HTTP \
+       --http-health-checks http-basic-check \
+       --global
+
+gcloud compute backend-services add-backend web-server-backend \
+       --instance-group=web-server-group \
+       --instance-group-zone=us-central1 \
+       --global
+
+gcloud compute url-maps create web-server-map \
+       --default-service web-server-backend
+
+gcloud compute target-http-proxies create http-lb-proxy \
+       --url-map=web-server-map
+
+gcloud compute forwarding-rules create permit-tcp-rule-145 \
+     --global \
+     --target-http-proxy=http-lb-proxy \
+     --ports=80
+
+gcloud compute forwarding-rules list
